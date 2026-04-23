@@ -1,0 +1,133 @@
+{
+  "theme": "LIGHT",
+  "archetype": "1 (Organic & Earthy)",
+  "context": "hybrid_fullstack (Mobile-first Public Menu + Admin Dashboard)",
+  "typography": {
+    "headings": {
+      "family": "Outfit",
+      "weights": ["600", "700"],
+      "strategy": "Modern, warm, and highly readable. Used for dish names and category titles."
+    },
+    "body": {
+      "family": "Manrope",
+      "weights": ["400", "500", "600"],
+      "strategy": "Clean sans-serif for descriptions, prices, and tags."
+    },
+    "scale": {
+      "h1": "text-3xl sm:text-4xl tracking-tight",
+      "h2": "text-2xl sm:text-3xl tracking-tight",
+      "h3": "text-xl sm:text-2xl",
+      "body": "text-base",
+      "small": "text-sm",
+      "tiny": "text-xs tracking-wider uppercase"
+    }
+  },
+  "colors": {
+    "mandatory": {
+      "primary": "#A0522D",
+      "secondary": "#205427",
+      "tertiary": "#303226",
+      "neutral": "#2F3538"
+    },
+    "system": {
+      "background": "#FAF8F5",
+      "surface": "#FFFFFF",
+      "surface_hover": "#F2EFE9",
+      "border": "#EAE6DF",
+      "text_main": "#2F3538",
+      "text_muted": "#6B7280"
+    },
+    "states": {
+      "success": "#205427",
+      "warning": "#D97706",
+      "error": "#DC2626",
+      "promo_bg": "rgba(160, 82, 45, 0.1)",
+      "vegan_bg": "rgba(32, 84, 39, 0.1)"
+    }
+  },
+  "layout_and_spacing": {
+    "philosophy": "Generous Spacing Philosophy with mobile-first dense data capabilities.",
+    "public_menu": {
+      "container": "max-w-3xl mx-auto px-4 pb-24",
+      "header": "sticky top-0 z-50 bg-[#FAF8F5]/90 backdrop-blur-md pt-4 pb-2 border-b border-[#EAE6DF]",
+      "cards": "flex flex-row gap-4 p-4 rounded-2xl bg-white shadow-sm border border-[#EAE6DF] mb-4"
+    },
+    "admin_dashboard": {
+      "grid": "grid-cols-1 md:grid-cols-12 gap-6",
+      "sidebar": "md:col-span-3 lg:col-span-2 bg-[#2F3538] min-h-screen text-white",
+      "content": "md:col-span-9 lg:col-span-10 p-6 md:p-8"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#A0522D] text-white hover:bg-[#8A4626] rounded-xl px-6 py-3 font-medium transition-colors",
+      "inverted": "bg-[#2F3538] text-white hover:bg-[#1C2022] rounded-xl px-6 py-3 font-medium transition-colors",
+      "outlined": "border-2 border-[#A0522D] text-[#A0522D] hover:bg-[#A0522D]/5 rounded-xl px-6 py-3 font-medium transition-colors"
+    },
+    "tags_chips": {
+      "base": "px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all",
+      "active": "bg-[#A0522D] text-white shadow-md",
+      "inactive": "bg-[#EAE6DF] text-[#2F3538] hover:bg-[#DED9CF]"
+    },
+    "badges": {
+      "base": "px-2.5 py-0.5 rounded-md text-xs font-bold uppercase tracking-wider inline-flex items-center gap-1",
+      "promo": "bg-[#A0522D]/10 text-[#A0522D]",
+      "vegan": "bg-[#205427]/10 text-[#205427]",
+      "gluten_free": "bg-[#303226]/10 text-[#303226]"
+    },
+    "search_bar": {
+      "style": "w-full bg-white border border-[#EAE6DF] rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-[#A0522D] focus-within:border-transparent flex items-center gap-2 shadow-sm"
+    },
+    "language_toggle": {
+      "style": "flex rounded-lg overflow-hidden border border-[#EAE6DF] bg-white",
+      "item": "px-3 py-1.5 text-sm font-semibold transition-colors",
+      "item_active": "bg-[#303226] text-white",
+      "item_inactive": "text-[#6B7280] hover:text-[#2F3538]"
+    }
+  },
+  "motion": {
+    "hover": "transition-all duration-200 ease-out",
+    "list_item": "animate-in slide-in-from-bottom-2 fade-in duration-300",
+    "chip_scroll": "scroll-smooth overflow-x-auto hide-scrollbar"
+  },
+  "media": {
+    "placeholders": [
+      {
+        "category": "product_burger",
+        "url": "https://images.unsplash.com/photo-1550547660-d9450f859349?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzJ8MHwxfHNlYXJjaHwxfHxnb3VybWV0JTIwYnVyZ2VyfGVufDB8fHx8MTc3Njk0NjUzM3ww&ixlib=rb-4.1.0&q=85",
+        "description": "Gourmet burger for menu item"
+      },
+      {
+        "category": "product_salad",
+        "url": "https://images.pexels.com/photos/3026013/pexels-photo-3026013.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Fresh healthy salad for menu item"
+      },
+      {
+        "category": "product_dessert",
+        "url": "https://images.pexels.com/photos/33674414/pexels-photo-33674414.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Chocolate lava cake dessert for menu item"
+      },
+      {
+        "category": "restaurant_background",
+        "url": "https://images.pexels.com/photos/8495947/pexels-photo-8495947.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Warm restaurant interior for admin login or client intro"
+      }
+    ],
+    "icons_library": "lucide-react"
+  },
+  "testing": {
+    "rules": "All interactive and key informational elements MUST include a 'data-testid' attribute in kebab-case."
+  },
+  "instructions_to_main_agent": [
+    "Build a mobile-first digital menu view for clients and a desktop-friendly dashboard for admins.",
+    "Implement the client menu using the #FAF8F5 background. Ensure the header with Search, Language Toggle, and Tag filters is sticky using glassmorphism (backdrop-blur-md).",
+    "Filters must operate with zero latency (client-side filtering recommended for instant feedback).",
+    "Use 'Outfit' for headings and 'Manrope' for body text. Do NOT use Inter.",
+    "Apply the requested primary (#A0522D) and secondary (#205427) colors exclusively as actionable highlights, tags, and status indicators.",
+    "Cards for food items should be responsive. On mobile, use a horizontal layout (image left, content right) to save vertical space, or full-width image on top if highlighted.",
+    "Integrate translation state for PT/EN/ES affecting UI strings.",
+    "For the Admin Dashboard, use Shadcn UI customized to our color palette. Sidebar should be Dark (#2F3538) to contrast with the light content area.",
+    "Create dynamic tag creation in the admin panel so managers can define colors/icons for tags like 'Spicy', 'Vegan'.",
+    "Add 'data-testid' to all buttons, links, inputs, and toggles for robust automated testing."
+  ]
+}
