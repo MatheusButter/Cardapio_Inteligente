@@ -3,8 +3,11 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import "@/App.css";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { I18nProvider } from "./i18n/I18nContext";
+import { CartProvider } from "./cart/CartContext";
 import { Toaster } from "./components/ui/sonner";
+import CartDrawer from "./components/CartDrawer";
 import MenuPage from "./pages/MenuPage";
+import ProductDetailPage from "./pages/ProductDetailPage";
 import AdminLogin from "./pages/AdminLogin";
 import AdminLayout from "./pages/AdminLayout";
 import AdminProducts from "./pages/AdminProducts";
@@ -22,10 +25,12 @@ export default function App() {
   return (
     <I18nProvider>
       <AuthProvider>
+        <CartProvider>
         <div className="App">
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<MenuPage />} />
+              <Route path="/menu/:id" element={<ProductDetailPage />} />
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin" element={<Protected><AdminLayout /></Protected>}>
                 <Route index element={<Navigate to="products" replace />} />
@@ -35,9 +40,11 @@ export default function App() {
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            <CartDrawer />
           </BrowserRouter>
           <Toaster position="top-right" />
         </div>
+        </CartProvider>
       </AuthProvider>
     </I18nProvider>
   );

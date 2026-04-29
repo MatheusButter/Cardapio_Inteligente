@@ -148,6 +148,10 @@ class TagUpdate(BaseModel):
     color: Optional[str] = None
     icon: Optional[str] = None
 
+class PortionSize(BaseModel):
+    label: Dict[str, str]
+    price: float
+
 class ProductCreate(BaseModel):
     name: Dict[str, str]
     description: Dict[str, str] = Field(default_factory=dict)
@@ -157,6 +161,11 @@ class ProductCreate(BaseModel):
     available: bool = True
     tag_ids: List[str] = Field(default_factory=list)
     image_path: Optional[str] = None
+    images: List[str] = Field(default_factory=list)
+    ingredients: List[Dict[str, str]] = Field(default_factory=list)
+    prep_time: Optional[int] = None
+    portion_sizes: List[PortionSize] = Field(default_factory=list)
+    pairing_ids: List[str] = Field(default_factory=list)
 
 class ProductUpdate(BaseModel):
     name: Optional[Dict[str, str]] = None
@@ -167,6 +176,11 @@ class ProductUpdate(BaseModel):
     available: Optional[bool] = None
     tag_ids: Optional[List[str]] = None
     image_path: Optional[str] = None
+    images: Optional[List[str]] = None
+    ingredients: Optional[List[Dict[str, str]]] = None
+    prep_time: Optional[int] = None
+    portion_sizes: Optional[List[PortionSize]] = None
+    pairing_ids: Optional[List[str]] = None
 
 # -------- Auth endpoints --------
 @api_router.post("/auth/login")
@@ -345,6 +359,22 @@ async def on_startup():
         logger.info(f"Admin seeded: {admin_email}")
     elif not verify_password(admin_pw, existing["password_hash"]):
         await db.users.update_one({"email": admin_email}, {"$set": {"password_hash": hash_password(admin_pw)}})
+
+    # Backfill existing products with new fields (idempotent)
+    async for p in db.products.find({}):
+        updates = {}
+        if "images" not in p or p.get("images") is None:
+            updates["images"] = [p["image_path"]] if p.get("image_path") else []
+        if "ingredients" not in p:
+            updates["ingredients"] = []
+        if "portion_sizes" not in p:
+            updates["portion_sizes"] = []
+        if "pairing_ids" not in p:
+            updates["pairing_ids"] = []
+        if "prep_time" not in p:
+            updates["prep_time"] = None
+        if updates:
+            await db.products.update_one({"id": p["id"]}, {"$set": updates})
 
     # Seed demo tags + products if empty
     if await db.tags.count_documents({}) == 0:

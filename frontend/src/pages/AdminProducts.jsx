@@ -13,6 +13,11 @@ const EMPTY = {
   available: true,
   tag_ids: [],
   image_path: "",
+  images: [],
+  ingredients: [],
+  prep_time: null,
+  portion_sizes: [],
+  pairing_ids: [],
 };
 
 export default function AdminProducts() {
@@ -69,14 +74,49 @@ export default function AdminProducts() {
     setUploading(true);
     try {
       const { data } = await api.post("/upload", form, { headers: { "Content-Type": "multipart/form-data" } });
-      setEditing((prev) => ({ ...prev, image_path: data.path }));
+      setEditing((prev) => ({ ...prev, image_path: prev.image_path || data.path, images: [...(prev.images || []), data.path] }));
       toast.success("Imagem enviada");
     } catch (err) {
       toast.error(formatApiErrorDetail(err.response?.data?.detail));
     } finally {
       setUploading(false);
+      e.target.value = "";
     }
   };
+
+  const removeImage = (idx) => {
+    setEditing((prev) => {
+      const imgs = [...(prev.images || [])];
+      imgs.splice(idx, 1);
+      return { ...prev, images: imgs, image_path: imgs[0] || "" };
+    });
+  };
+
+  const addIngredient = () => setEditing((p) => ({ ...p, ingredients: [...(p.ingredients || []), { pt: "", en: "", es: "" }] }));
+  const updateIngredient = (i, code, val) => setEditing((p) => {
+    const ing = [...(p.ingredients || [])];
+    ing[i] = { ...ing[i], [code]: val };
+    return { ...p, ingredients: ing };
+  });
+  const removeIngredient = (i) => setEditing((p) => {
+    const ing = [...(p.ingredients || [])]; ing.splice(i, 1); return { ...p, ingredients: ing };
+  });
+
+  const addPortion = () => setEditing((p) => ({ ...p, portion_sizes: [...(p.portion_sizes || []), { label: { pt: "", en: "", es: "" }, price: 0 }] }));
+  const updatePortion = (i, field, val) => setEditing((p) => {
+    const ps = [...(p.portion_sizes || [])];
+    ps[i] = field === "price" ? { ...ps[i], price: parseFloat(val || "0") } : { ...ps[i], label: { ...(ps[i].label || {}), [field]: val } };
+    return { ...p, portion_sizes: ps };
+  });
+  const removePortion = (i) => setEditing((p) => {
+    const ps = [...(p.portion_sizes || [])]; ps.splice(i, 1); return { ...p, portion_sizes: ps };
+  });
+
+  const togglePairing = (id) => setEditing((p) => {
+    const set = new Set(p.pairing_ids || []);
+    if (set.has(id)) set.delete(id); else set.add(id);
+    return { ...p, pairing_ids: Array.from(set) };
+  });
 
   const toggleTag = (id) => {
     setEditing((prev) => {
@@ -158,28 +198,22 @@ export default function AdminProducts() {
               </button>
             </div>
             <div className="p-6 space-y-4">
-              {/* Image */}
+              {/* Image gallery */}
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wider text-[#6B7280] block mb-1.5">{t("admin.image")}</label>
-                <div className="flex items-center gap-3">
-                  <div className="w-20 h-20 rounded-xl overflow-hidden bg-[#F2EFE9] shrink-0">
-                    {editing.image_path ? (
-                      <img src={resolveImageUrl(editing.image_path)} alt="" className="w-full h-full object-cover" />
-                    ) : null}
-                  </div>
-                  <label className="cursor-pointer border-2 border-[#A0522D] text-[#A0522D] hover:bg-[#A0522D]/5 rounded-xl px-4 py-2 font-medium transition-colors inline-flex items-center gap-2">
-                    <Upload size={14} />
-                    {uploading ? t("admin.uploading") : t("admin.upload")}
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#6B7280] block mb-2">{t("admin.image")} (galeria)</label>
+                <div className="flex flex-wrap gap-2">
+                  {(editing.images || []).map((src, i) => (
+                    <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden bg-[#F2EFE9] group">
+                      <img src={resolveImageUrl(src)} alt="" className="w-full h-full object-cover" />
+                      <button onClick={() => removeImage(i)} className="absolute top-1 right-1 bg-[#DC2626] text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" data-testid={`remove-img-${i}`}>×</button>
+                      {i === 0 && <div className="absolute bottom-0 left-0 right-0 bg-[#A0522D] text-white text-[9px] font-bold tracking-wider uppercase text-center py-0.5">capa</div>}
+                    </div>
+                  ))}
+                  <label className="cursor-pointer w-20 h-20 rounded-xl border-2 border-dashed border-[#A0522D] text-[#A0522D] hover:bg-[#A0522D]/5 transition-colors inline-flex flex-col items-center justify-center text-xs font-medium">
+                    <Upload size={16} />
+                    <span className="mt-1">{uploading ? "..." : "Add"}</span>
                     <input type="file" accept="image/*" className="hidden" onChange={onUpload} data-testid="upload-input" />
                   </label>
-                  {editing.image_path && (
-                    <button
-                      onClick={() => setEditing((p) => ({ ...p, image_path: "" }))}
-                      className="text-xs text-[#DC2626] hover:underline"
-                    >
-                      Remover
-                    </button>
-                  )}
                 </div>
               </div>
 
@@ -246,6 +280,72 @@ export default function AdminProducts() {
                     <input type="checkbox" checked={editing.available !== false} onChange={(e) => setEditing({ ...editing, available: e.target.checked })} data-testid="available-checkbox" />
                     {t("admin.available")}
                   </label>
+                </div>
+              </div>
+
+              {/* Prep time */}
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#6B7280] block mb-1.5">Tempo de preparo (min)</label>
+                <input
+                  type="number"
+                  value={editing.prep_time ?? ""}
+                  onChange={(e) => setEditing({ ...editing, prep_time: e.target.value ? parseInt(e.target.value) : null })}
+                  className="w-32 bg-white border border-[#EAE6DF] rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-[#A0522D]"
+                  data-testid="prep-time-input"
+                />
+              </div>
+
+              {/* Portion sizes */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Tamanhos de porção</label>
+                  <button type="button" onClick={addPortion} className="text-xs text-[#A0522D] font-semibold hover:underline" data-testid="add-portion-btn">+ adicionar</button>
+                </div>
+                <div className="space-y-2">
+                  {(editing.portion_sizes || []).map((p, i) => (
+                    <div key={i} className="grid grid-cols-12 gap-2 items-center" data-testid={`portion-row-${i}`}>
+                      <input placeholder="PT" value={p.label?.pt || ""} onChange={(e) => updatePortion(i, "pt", e.target.value)} className="col-span-3 border border-[#EAE6DF] rounded-lg px-2 py-2 text-sm" />
+                      <input placeholder="EN" value={p.label?.en || ""} onChange={(e) => updatePortion(i, "en", e.target.value)} className="col-span-3 border border-[#EAE6DF] rounded-lg px-2 py-2 text-sm" />
+                      <input placeholder="ES" value={p.label?.es || ""} onChange={(e) => updatePortion(i, "es", e.target.value)} className="col-span-3 border border-[#EAE6DF] rounded-lg px-2 py-2 text-sm" />
+                      <input type="number" step="0.01" placeholder="Preço" value={p.price ?? 0} onChange={(e) => updatePortion(i, "price", e.target.value)} className="col-span-2 border border-[#EAE6DF] rounded-lg px-2 py-2 text-sm" />
+                      <button type="button" onClick={() => removePortion(i)} className="col-span-1 text-[#DC2626] hover:bg-[#DC2626]/10 rounded-lg p-2"><Trash2 size={14} /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ingredients */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-[#6B7280]">Ingredientes principais</label>
+                  <button type="button" onClick={addIngredient} className="text-xs text-[#A0522D] font-semibold hover:underline" data-testid="add-ingredient-btn">+ adicionar</button>
+                </div>
+                <div className="space-y-2">
+                  {(editing.ingredients || []).map((ing, i) => (
+                    <div key={i} className="grid grid-cols-12 gap-2 items-center">
+                      <input placeholder="PT" value={ing.pt || ""} onChange={(e) => updateIngredient(i, "pt", e.target.value)} className="col-span-4 border border-[#EAE6DF] rounded-lg px-2 py-2 text-sm" />
+                      <input placeholder="EN" value={ing.en || ""} onChange={(e) => updateIngredient(i, "en", e.target.value)} className="col-span-4 border border-[#EAE6DF] rounded-lg px-2 py-2 text-sm" />
+                      <input placeholder="ES" value={ing.es || ""} onChange={(e) => updateIngredient(i, "es", e.target.value)} className="col-span-3 border border-[#EAE6DF] rounded-lg px-2 py-2 text-sm" />
+                      <button type="button" onClick={() => removeIngredient(i)} className="col-span-1 text-[#DC2626] hover:bg-[#DC2626]/10 rounded-lg p-2"><Trash2 size={14} /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pairings */}
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#6B7280] block mb-2">Harmonização sugerida</label>
+                <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-1">
+                  {products.filter((p) => p.id !== editing.id).map((p) => {
+                    const active = (editing.pairing_ids || []).includes(p.id);
+                    return (
+                      <button key={p.id} type="button" onClick={() => togglePairing(p.id)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${active ? "bg-[#A0522D] text-white border-[#A0522D]" : "bg-white text-[#2F3538] border-[#EAE6DF] hover:border-[#A0522D]/40"}`}
+                        data-testid={`pairing-${p.id}`}>
+                        {tf(p.name)}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

@@ -10,27 +10,39 @@ Sistema de cardápio digital para estabelecimentos gastronômicos com atualizaç
 - Auth: JWT (PyJWT) + bcrypt, Bearer token via localStorage
 
 ## User Personas
-1. **Gerente (admin)** — faz CRUD de pratos/tags, gerencia preços e disponibilidade
-2. **Cliente (público)** — escaneia QR, navega cardápio mobile, filtra, muda idioma
+1. **Gerente (admin)** — CRUD de pratos/tags, preços/disponibilidade, gestão de QR
+2. **Cliente (público)** — escaneia QR, navega, filtra, monta pedido
 
-## Implemented (23/04/2026)
+## Implemented (atualizado em 29/04/2026)
+
+### Iteração 1 (23/04/2026)
 - Backend `/api/*`: auth (login/me/logout), products CRUD, tags CRUD, upload + file serving, categories, seed admin+6 produtos demo+5 tags demo
-- Frontend:
-  - `/` Menu público mobile-first — busca, filtros por categoria, chips de tags, PROMO/UNAVAILABLE badges, i18n instantâneo
-  - `/admin/login` — login JWT
-  - `/admin/products` — CRUD com modal multi-idioma, upload de imagem, seletor de tags
-  - `/admin/tags` — CRUD com color-picker e ícone
-  - `/admin/qr` — QR gerado automaticamente + download/copy
-- Design guidelines seguidos: paleta #A0522D/#205427/#303226/#2F3538, fontes Outfit+Manrope, sidebar escura, cards glassmórficos
+- Frontend: `/` Menu público mobile-first, `/admin/login`, `/admin/products|tags|qr`
+- Design: paleta #A0522D/#205427/#303226/#2F3538, fontes Outfit+Manrope
 
-## Backlog P0/P1/P2
-- P1: Múltiplos estabelecimentos (multi-tenant) — hoje tudo é single-restaurant
-- P1: Gestão de usuários/gerentes adicionais no admin
-- P2: Histórico de alterações de preço / logs de auditoria
-- P2: Relatórios simples (top pratos, conversão)
-- P2: Modo kiosk / carrinho / pedido (pedido na mesa)
+### Iteração 2 — Feedback do PDF (28/04/2026)
+- **Backend**: novos campos no produto — `images[]`, `ingredients[]` (i18n), `prep_time`, `portion_sizes[]` (label i18n + price), `pairing_ids[]` para harmonização
+- **Página de detalhes** `/menu/:id`: galeria com thumbnails, badge da categoria, prep time, seletor de **Tamanho da porção**, ingredientes, tags, **harmonização sugerida**, barra fixa inferior com preço dinâmico e "Adicionar ao pedido"
+- **Hero "Curadoria Sazonal"** no menu público (gradient escuro + título serif italicizado)
+- **Modal Tags modernizado**: pré-visualização ao vivo, presets de cores em círculos, **grid visual de 21 ícones** (lucide-react)
+- **Modal Produto**: galeria multi-imagem com capa, lista dinâmica de ingredientes (PT/EN/ES), porções, tempo de preparo, seletor de pairings
+
+### Iteração 3 — Carrinho/Pedido (29/04/2026)
+- **CartContext** localStorage-backed (`cd_cart`)
+- **CartDrawer** lateral: lista de itens com qty +/-, remover, total dinâmico
+- **FAB "Fechar pedido (n)"** verde, aparece quando há itens
+- Botão **+ quick-add** em cada card do menu público
+- "Adicionar ao pedido" do detail page funcional (respeita porção selecionada)
+- Checkout via WhatsApp (`wa.me`) com itens formatados + total
+
+## Backlog
+- P1: Multi-tenant (vários restaurantes)
+- P1: Gestão de usuários/gerentes adicionais
+- P1: Translation Hub admin com auto-tradução via LLM (descrito no PDF)
+- P2: Histórico de pedidos / dashboard de analytics
+- P2: Modo kiosk em tablets
 - P2: Import/export de cardápio (CSV)
+- P2: Configurar número de WhatsApp do estabelecimento (hoje vai para wa.me sem destinatário)
 
-## Next Action Items
-- (Opcional) Rodar testing agent para cobrir CRUD de admin no Playwright
-- Deploy quando o usuário solicitar
+## Test Credentials
+- Admin: `admin@cardapio.com` / `admin123`

@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Search, X, Utensils, Leaf, Flame, Sparkles, MilkOff, WheatOff, Tag as TagIcon } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Search, X, Utensils, Leaf, Flame, Sparkles, MilkOff, WheatOff, Tag as TagIcon, ChevronRight, Plus } from "lucide-react";
+import { toast } from "sonner";
 import api, { resolveImageUrl } from "../lib/api";
 import { useI18n } from "../i18n/I18nContext";
+import { useCart } from "../cart/CartContext";
 import LanguageToggle from "../components/LanguageToggle";
 
 const ICONS = {
@@ -20,6 +23,7 @@ function TagIconRender({ name, color }) {
 
 export default function MenuPage() {
   const { t, tf, lang } = useI18n();
+  const { add } = useCart();
   const [products, setProducts] = useState([]);
   const [tags, setTags] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -76,23 +80,29 @@ export default function MenuPage() {
 
   return (
     <div className="min-h-screen bg-[#FAF8F5] pb-24">
-      {/* Sticky header */}
-      <div className="sticky top-0 z-50 bg-[#FAF8F5]/90 backdrop-blur-md pt-4 pb-3 border-b border-[#EAE6DF]">
-        <div className="max-w-3xl mx-auto px-4">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <div>
-              <div className="flex items-center gap-2 text-[#A0522D]">
-                <Utensils size={18} />
-                <span className="text-xs font-semibold uppercase tracking-[0.2em]">{t("menu.poweredBy")}</span>
-              </div>
-              <h1 className="font-heading text-3xl sm:text-4xl font-bold text-[#2F3538] mt-1" data-testid="menu-title">
-                {t("menu.title")}
-              </h1>
-              <p className="text-sm text-[#6B7280]">{t("menu.subtitle")}</p>
+      {/* Hero - Curadoria Sazonal */}
+      <div className="relative bg-gradient-to-br from-[#2F3538] via-[#303226] to-[#1C2022] text-white overflow-hidden">
+        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 20% 30%, #A0522D 0%, transparent 40%), radial-gradient(circle at 80% 70%, #205427 0%, transparent 40%)" }} />
+        <div className="relative max-w-3xl mx-auto px-4 pt-8 pb-10">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2 text-[#E0B98C]">
+              <Utensils size={16} />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.3em]">{t("menu.poweredBy")}</span>
             </div>
             <LanguageToggle />
           </div>
+          <h1 className="font-heading text-4xl sm:text-5xl font-bold tracking-tight mt-5" data-testid="menu-title">
+            Curadoria<br /><span className="text-[#E0B98C] italic font-medium">Sazonal</span>
+          </h1>
+          <p className="text-sm text-white/70 mt-3 max-w-md leading-relaxed">
+            Uma jornada pelos sabores mais frescos da estação, harmonizados pelos nossos especialistas.
+          </p>
+        </div>
+      </div>
 
+      {/* Sticky filters */}
+      <div className="sticky top-0 z-50 bg-[#FAF8F5]/95 backdrop-blur-md pt-4 pb-3 border-b border-[#EAE6DF]">
+        <div className="max-w-3xl mx-auto px-4">
           {/* Search */}
           <div className="w-full bg-white border border-[#EAE6DF] rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-[#A0522D] focus-within:border-transparent flex items-center gap-2 shadow-sm">
             <Search size={18} className="text-[#6B7280]" />
@@ -188,9 +198,10 @@ export default function MenuPage() {
                 style={{ animationDelay: `${Math.min(idx * 40, 300)}ms` }}
                 data-testid={`product-card-${p.id}`}
               >
+                <Link to={`/menu/${p.id}`} className="block">
                 <article
                   className={`flex flex-row gap-4 p-4 rounded-2xl bg-white shadow-sm border border-[#EAE6DF] transition-all ${
-                    p.available === false ? "opacity-60" : "hover:shadow-md"
+                    p.available === false ? "opacity-60" : "hover:shadow-md hover:-translate-y-0.5"
                   }`}
                 >
                   <div className="w-24 h-24 sm:w-28 sm:h-28 shrink-0 rounded-xl overflow-hidden bg-[#F2EFE9]">
@@ -245,9 +256,24 @@ export default function MenuPage() {
                           {t("menu.unavailable")}
                         </span>
                       )}
+                      {p.available !== false && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault(); e.stopPropagation();
+                            add(p, null);
+                            toast.success(`${tf(p.name)} adicionado`);
+                          }}
+                          className="ml-auto bg-[#A0522D] hover:bg-[#8A4626] text-white rounded-full w-8 h-8 inline-flex items-center justify-center transition-all hover:scale-110"
+                          aria-label="Add to order"
+                          data-testid={`quick-add-${p.id}`}
+                        >
+                          <Plus size={16} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </article>
+                </Link>
               </li>
             ))}
           </ul>
