@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Search, X, Utensils, Leaf, Flame, Sparkles, MilkOff, WheatOff, Tag as TagIcon, ChevronRight, Plus } from "lucide-react";
+import { Search, X, Utensils, Leaf, Flame, Sparkles, MilkOff, WheatOff, Tag as TagIcon, ChevronRight, Plus, Lock, Coffee, Wine } from "lucide-react";
 import { toast } from "sonner";
 import api, { resolveImageUrl } from "../lib/api";
 import { useI18n } from "../i18n/I18nContext";
 import { useCart } from "../cart/CartContext";
+import { useStore } from "../store/StoreContext";
 import LanguageToggle from "../components/LanguageToggle";
 
 const ICONS = {
@@ -16,6 +17,8 @@ const ICONS = {
   tag: TagIcon,
 };
 
+const MENU_ICONS = { utensils: Utensils, coffee: Coffee, wine: Wine };
+
 function TagIconRender({ name, color }) {
   const Ico = ICONS[name] || TagIcon;
   return <Ico size={12} style={{ color }} />;
@@ -24,8 +27,11 @@ function TagIconRender({ name, color }) {
 export default function MenuPage() {
   const { t, tf, lang } = useI18n();
   const { add } = useCart();
+  const { store } = useStore();
   const [products, setProducts] = useState([]);
   const [tags, setTags] = useState([]);
+  const [menus, setMenus] = useState([]);
+  const [activeMenu, setActiveMenu] = useState("all");
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [activeTagIds, setActiveTagIds] = useState(new Set());
@@ -33,11 +39,12 @@ export default function MenuPage() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([api.get("/products"), api.get("/tags")])
-      .then(([p, t]) => {
+    Promise.all([api.get("/products"), api.get("/tags"), api.get("/menus")])
+      .then(([p, t, m]) => {
         if (cancelled) return;
         setProducts(p.data);
         setTags(t.data);
+        setMenus((m.data || []).filter((x) => x.active));
       })
       .finally(() => !cancelled && setLoading(false));
     return () => { cancelled = true; };
@@ -61,6 +68,7 @@ export default function MenuPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products.filter((p) => {
+      if (activeMenu !== "all" && !(p.menu_ids || []).includes(activeMenu)) return false;
       if (activeCategory !== "all" && p.category !== activeCategory) return false;
       if (activeTagIds.size > 0) {
         const pSet = new Set(p.tag_ids || []);
@@ -73,13 +81,21 @@ export default function MenuPage() {
       }
       return true;
     });
-  }, [products, query, activeTagIds, activeCategory, tf, lang]);
+  }, [products, query, activeTagIds, activeCategory, activeMenu, tf, lang]);
 
   const hasFilters = query || activeTagIds.size > 0 || activeCategory !== "all";
   const clearFilters = () => { setQuery(""); setActiveTagIds(new Set()); setActiveCategory("all"); };
 
   return (
     <div className="min-h-screen bg-[#FAF8F5] pb-24">
+      {/* Store closed banner */}
+      {store && store.is_open === false && (
+        <div className="bg-[#DC2626] text-white text-sm py-2 px-4 text-center font-medium" data-testid="store-closed-banner">
+          <Lock size={14} className="inline mr-1.5 -mt-0.5" />
+          Loja fechada — você pode visualizar o cardápio, mas pedidos estão indisponíveis no momento.
+        </div>
+      )}
+
       {/* Hero - Curadoria Sazonal */}
       <div className="relative bg-gradient-to-br from-[#2F3538] via-[#303226] to-[#1C2022] text-white overflow-hidden">
         <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 20% 30%, #A0522D 0%, transparent 40%), radial-gradient(circle at 80% 70%, #205427 0%, transparent 40%)" }} />
@@ -103,6 +119,33 @@ export default function MenuPage() {
       {/* Sticky filters */}
       <div className="sticky top-0 z-50 bg-[#FAF8F5]/95 backdrop-blur-md pt-4 pb-3 border-b border-[#EAE6DF]">
         <div className="max-w-3xl mx-auto px-4">
+          {/* Menu tabs (cardápios diferentes) */}
+          {menus.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto hide-scrollbar mb-3" data-testid="menu-tabs">
+              <button
+                onClick={() => setActiveMenu("all")}
+                className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all inline-flex items-center gap-1.5 ${activeMenu === "all" ? "bg-[#A0522D] text-white shadow-md" : "bg-white border border-[#EAE6DF] text-[#2F3538]"}`}
+                data-testid="menu-tab-all"
+              >
+                <Utensils size={14} /> Todos
+              </button>
+              {menus.map((m) => {
+                const Ico = MENU_ICONS[m.icon] || Utensils;
+                const active = activeMenu === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setActiveMenu(m.id)}
+                    className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all inline-flex items-center gap-1.5 ${active ? "bg-[#A0522D] text-white shadow-md" : "bg-white border border-[#EAE6DF] text-[#2F3538] hover:bg-[#F2EFE9]"}`}
+                    data-testid={`menu-tab-${m.id}`}
+                  >
+                    <Ico size={14} /> {tf(m.name)}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Search */}
           <div className="w-full bg-white border border-[#EAE6DF] rounded-xl px-4 py-3 focus-within:ring-2 focus-within:ring-[#A0522D] focus-within:border-transparent flex items-center gap-2 shadow-sm">
             <Search size={18} className="text-[#6B7280]" />
@@ -256,7 +299,7 @@ export default function MenuPage() {
                           {t("menu.unavailable")}
                         </span>
                       )}
-                      {p.available !== false && (
+                      {p.available !== false && store?.is_open !== false && (
                         <button
                           onClick={(e) => {
                             e.preventDefault(); e.stopPropagation();

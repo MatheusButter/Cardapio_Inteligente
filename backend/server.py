@@ -84,6 +84,16 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
 
+STAFF_ROLES = {"admin", "manager", "waiter", "kitchen", "cashier"}
+MGMT_ROLES = {"admin", "manager"}
+
+def require_roles(*roles: str):
+    async def _dep(user: dict = Depends(get_current_user)) -> dict:
+        if user.get("role") not in roles:
+            raise HTTPException(status_code=403, detail="Access denied")
+        return user
+    return _dep
+
 # -------- Storage helpers --------
 def init_storage():
     global storage_key
@@ -181,6 +191,7 @@ class ProductUpdate(BaseModel):
     prep_time: Optional[int] = None
     portion_sizes: Optional[List[PortionSize]] = None
     pairing_ids: Optional[List[str]] = None
+    menu_ids: Optional[List[str]] = None
 
 # -------- Auth endpoints --------
 @api_router.post("/auth/login")
@@ -215,7 +226,7 @@ async def list_tags():
     return tags
 
 @api_router.post("/tags")
-async def create_tag(payload: TagCreate, _: dict = Depends(require_admin)):
+async def create_tag(payload: TagCreate, _: dict = Depends(require_roles("admin","manager"))):
     tag = {
         "id": str(uuid.uuid4()),
         "name": payload.name,
@@ -228,7 +239,7 @@ async def create_tag(payload: TagCreate, _: dict = Depends(require_admin)):
     return tag
 
 @api_router.put("/tags/{tag_id}")
-async def update_tag(tag_id: str, payload: TagUpdate, _: dict = Depends(require_admin)):
+async def update_tag(tag_id: str, payload: TagUpdate, _: dict = Depends(require_roles("admin","manager"))):
     updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
     if not updates:
         raise HTTPException(status_code=400, detail="Nothing to update")
@@ -239,7 +250,7 @@ async def update_tag(tag_id: str, payload: TagUpdate, _: dict = Depends(require_
     return tag
 
 @api_router.delete("/tags/{tag_id}")
-async def delete_tag(tag_id: str, _: dict = Depends(require_admin)):
+async def delete_tag(tag_id: str, _: dict = Depends(require_roles("admin","manager"))):
     await db.tags.delete_one({"id": tag_id})
     await db.products.update_many({}, {"$pull": {"tag_ids": tag_id}})
     return {"ok": True}
@@ -258,7 +269,7 @@ async def get_product(product_id: str):
     return p
 
 @api_router.post("/products")
-async def create_product(payload: ProductCreate, _: dict = Depends(require_admin)):
+async def create_product(payload: ProductCreate, _: dict = Depends(require_roles("admin","manager"))):
     product = {
         "id": str(uuid.uuid4()),
         **payload.model_dump(),
@@ -270,7 +281,7 @@ async def create_product(payload: ProductCreate, _: dict = Depends(require_admin
     return product
 
 @api_router.put("/products/{product_id}")
-async def update_product(product_id: str, payload: ProductUpdate, _: dict = Depends(require_admin)):
+async def update_product(product_id: str, payload: ProductUpdate, _: dict = Depends(require_roles("admin","manager"))):
     updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
     if not updates:
         raise HTTPException(status_code=400, detail="Nothing to update")
@@ -282,7 +293,7 @@ async def update_product(product_id: str, payload: ProductUpdate, _: dict = Depe
     return p
 
 @api_router.delete("/products/{product_id}")
-async def delete_product(product_id: str, _: dict = Depends(require_admin)):
+async def delete_product(product_id: str, _: dict = Depends(require_roles("admin","manager"))):
     await db.products.delete_one({"id": product_id})
     return {"ok": True}
 
@@ -293,7 +304,7 @@ async def list_categories():
 
 # -------- Uploads --------
 @api_router.post("/upload")
-async def upload_file(file: UploadFile = File(...), user: dict = Depends(require_admin)):
+async def upload_file(file: UploadFile = File(...), user: dict = Depends(require_roles("admin","manager"))):
     ext = (file.filename.split(".")[-1] if "." in (file.filename or "") else "bin").lower()
     safe_ext = ext if ext in {"png", "jpg", "jpeg", "webp", "gif"} else "bin"
     path = f"{APP_NAME}/images/{uuid.uuid4()}.{safe_ext}"
@@ -320,6 +331,257 @@ async def download_file(path: str):
         raise HTTPException(status_code=404, detail="File not found")
     data, content_type = get_object(path)
     return FastAPIResponse(content=data, media_type=record.get("content_type", content_type))
+
+# ============================================================================
+# V2: Store settings, Menus, Staff (users CRUD), Orders
+# ============================================================================
+
+STORE_SINGLETON_ID = "default"
+
+class StoreSettingsUpdate(BaseModel):
+    is_open: Optional[bool] = None
+    store_name: Optional[str] = None
+    whatsapp: Optional[str] = None
+    address: Optional[str] = None
+    logo_path: Optional[str] = None
+
+async def get_store_settings() -> dict:
+    s = await db.store_settings.find_one({"id": STORE_SINGLETON_ID}, {"_id": 0})
+    if not s:
+        s = {
+            "id": STORE_SINGLETON_ID,
+            "is_open": True,
+            "store_name": "Cardápio Digital",
+            "whatsapp": "",
+            "address": "",
+            "logo_path": None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.store_settings.insert_one(dict(s))
+        s.pop("_id", None)
+    return s
+
+@api_router.get("/store")
+async def read_store():
+    return await get_store_settings()
+
+@api_router.put("/store")
+async def update_store(payload: StoreSettingsUpdate, _: dict = Depends(require_roles("admin", "manager"))):
+    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.store_settings.update_one({"id": STORE_SINGLETON_ID}, {"$set": updates}, upsert=True)
+    return await get_store_settings()
+
+# ---- Menus (café da manhã, happy hour, almoço, etc.) ----
+class MenuCreate(BaseModel):
+    name: Dict[str, str]
+    description: Dict[str, str] = Field(default_factory=dict)
+    icon: str = "utensils"
+    active: bool = True
+    sort_order: int = 0
+
+class MenuUpdate(BaseModel):
+    name: Optional[Dict[str, str]] = None
+    description: Optional[Dict[str, str]] = None
+    icon: Optional[str] = None
+    active: Optional[bool] = None
+    sort_order: Optional[int] = None
+
+@api_router.get("/menus")
+async def list_menus():
+    menus = await db.menus.find({}, {"_id": 0}).sort("sort_order", 1).to_list(500)
+    return menus
+
+@api_router.post("/menus")
+async def create_menu(payload: MenuCreate, _: dict = Depends(require_roles("admin", "manager"))):
+    doc = {"id": str(uuid.uuid4()), **payload.model_dump(),
+           "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.menus.insert_one(dict(doc))
+    doc.pop("_id", None)
+    return doc
+
+@api_router.put("/menus/{menu_id}")
+async def update_menu(menu_id: str, payload: MenuUpdate, _: dict = Depends(require_roles("admin", "manager"))):
+    updates = {k: v for k, v in payload.model_dump(exclude_unset=True).items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    r = await db.menus.update_one({"id": menu_id}, {"$set": updates})
+    if r.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    return await db.menus.find_one({"id": menu_id}, {"_id": 0})
+
+@api_router.delete("/menus/{menu_id}")
+async def delete_menu(menu_id: str, _: dict = Depends(require_roles("admin", "manager"))):
+    await db.menus.delete_one({"id": menu_id})
+    await db.products.update_many({}, {"$pull": {"menu_ids": menu_id}})
+    return {"ok": True}
+
+# ---- Staff (users CRUD) ----
+class StaffCreate(BaseModel):
+    email: EmailStr
+    password: str
+    name: str
+    role: str  # admin | manager | waiter | kitchen | cashier
+
+class StaffUpdate(BaseModel):
+    name: Optional[str] = None
+    role: Optional[str] = None
+    password: Optional[str] = None
+
+@api_router.get("/staff")
+async def list_staff(_: dict = Depends(require_roles("admin", "manager"))):
+    staff = await db.users.find({"role": {"$in": list(STAFF_ROLES)}}, {"_id": 0, "password_hash": 0}).to_list(500)
+    return staff
+
+@api_router.post("/staff")
+async def create_staff(payload: StaffCreate, _: dict = Depends(require_admin)):
+    if payload.role not in STAFF_ROLES:
+        raise HTTPException(status_code=400, detail="Invalid role")
+    email = payload.email.lower()
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(status_code=400, detail="Email already in use")
+    doc = {
+        "id": str(uuid.uuid4()),
+        "email": email,
+        "password_hash": hash_password(payload.password),
+        "name": payload.name,
+        "role": payload.role,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.users.insert_one(dict(doc))
+    doc.pop("password_hash"); doc.pop("_id", None)
+    return doc
+
+@api_router.put("/staff/{user_id}")
+async def update_staff(user_id: str, payload: StaffUpdate, _: dict = Depends(require_admin)):
+    updates = {}
+    if payload.name is not None: updates["name"] = payload.name
+    if payload.role is not None:
+        if payload.role not in STAFF_ROLES:
+            raise HTTPException(status_code=400, detail="Invalid role")
+        updates["role"] = payload.role
+    if payload.password:
+        updates["password_hash"] = hash_password(payload.password)
+    if not updates:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    r = await db.users.update_one({"id": user_id}, {"$set": updates})
+    if r.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    u = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    return u
+
+@api_router.delete("/staff/{user_id}")
+async def delete_staff(user_id: str, current: dict = Depends(require_admin)):
+    if user_id == current["id"]:
+        raise HTTPException(status_code=400, detail="Cannot delete yourself")
+    await db.users.delete_one({"id": user_id})
+    return {"ok": True}
+
+# ---- Orders ----
+ORDER_STATUSES = ["pending", "kitchen", "ready", "delivered", "completed", "cancelled"]
+
+class OrderItem(BaseModel):
+    product_id: str
+    name: Dict[str, str]
+    portion_label: Optional[Dict[str, str]] = None
+    unit_price: float
+    qty: int
+
+class OrderCreate(BaseModel):
+    customer_name: str
+    mode: str  # "table" | "takeout"
+    table_number: Optional[str] = None
+    note: Optional[str] = None
+    items: List[OrderItem]
+    payment_method: Optional[str] = None  # "cash" | "pending" | "card"
+    staff_id: Optional[str] = None
+
+class OrderStatusUpdate(BaseModel):
+    status: str
+
+def _gen_order_code() -> str:
+    # Short 4-digit code per day
+    import random
+    return f"#{random.randint(1000, 9999)}"
+
+@api_router.post("/orders")
+async def create_order(payload: OrderCreate, request: Request):
+    settings = await get_store_settings()
+    # Allow staff orders always; guest orders require store open
+    auth_user = None
+    try:
+        auth_user = await get_current_user(request)
+    except HTTPException:
+        auth_user = None
+
+    if not auth_user and not settings.get("is_open"):
+        raise HTTPException(status_code=403, detail="Store is closed — ordering unavailable")
+
+    if payload.mode not in ("table", "takeout"):
+        raise HTTPException(status_code=400, detail="Invalid mode")
+    if payload.mode == "table" and not payload.table_number:
+        raise HTTPException(status_code=400, detail="Table number required")
+    if not payload.items:
+        raise HTTPException(status_code=400, detail="Order has no items")
+
+    total = sum(i.unit_price * i.qty for i in payload.items)
+    doc = {
+        "id": str(uuid.uuid4()),
+        "code": _gen_order_code(),
+        "customer_name": payload.customer_name.strip() or "Cliente",
+        "mode": payload.mode,
+        "table_number": payload.table_number,
+        "note": payload.note or "",
+        "items": [i.model_dump() for i in payload.items],
+        "total": round(total, 2),
+        "status": "pending",
+        "payment_method": payload.payment_method or ("cash" if auth_user else "pending"),
+        "staff_id": auth_user["id"] if auth_user else None,
+        "staff_name": auth_user["name"] if auth_user else None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "status_history": [{"status": "pending", "at": datetime.now(timezone.utc).isoformat()}],
+    }
+    await db.orders.insert_one(dict(doc))
+    doc.pop("_id", None)
+    return doc
+
+@api_router.get("/orders")
+async def list_orders(
+    status: Optional[str] = None,
+    limit: int = 200,
+    _: dict = Depends(require_roles("admin", "manager", "waiter", "kitchen", "cashier")),
+):
+    q = {}
+    if status:
+        q["status"] = status
+    orders = await db.orders.find(q, {"_id": 0}).sort("created_at", -1).to_list(limit)
+    return orders
+
+@api_router.get("/orders/{order_id}")
+async def get_order(order_id: str, _: dict = Depends(require_roles(*STAFF_ROLES))):
+    o = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if not o:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return o
+
+@api_router.patch("/orders/{order_id}/status")
+async def update_order_status(order_id: str, payload: OrderStatusUpdate, user: dict = Depends(require_roles(*STAFF_ROLES))):
+    if payload.status not in ORDER_STATUSES:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    now = datetime.now(timezone.utc).isoformat()
+    r = await db.orders.update_one(
+        {"id": order_id},
+        {
+            "$set": {"status": payload.status, "updated_at": now},
+            "$push": {"status_history": {"status": payload.status, "at": now, "by": user["name"]}},
+        },
+    )
+    if r.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return await db.orders.find_one({"id": order_id}, {"_id": 0})
 
 # -------- Health --------
 @api_router.get("/")
@@ -371,10 +633,25 @@ async def on_startup():
             updates["portion_sizes"] = []
         if "pairing_ids" not in p:
             updates["pairing_ids"] = []
+        if "menu_ids" not in p:
+            updates["menu_ids"] = []
         if "prep_time" not in p:
             updates["prep_time"] = None
         if updates:
             await db.products.update_one({"id": p["id"]}, {"$set": updates})
+
+    # Seed default menus if empty
+    if await db.menus.count_documents({}) == 0:
+        default_menus = [
+            {"id": str(uuid.uuid4()), "name": {"pt": "Cardápio Principal", "en": "Main Menu", "es": "Menú Principal"}, "description": {}, "icon": "utensils", "active": True, "sort_order": 0, "created_at": datetime.now(timezone.utc).isoformat()},
+            {"id": str(uuid.uuid4()), "name": {"pt": "Café da Manhã", "en": "Breakfast", "es": "Desayuno"}, "description": {}, "icon": "coffee", "active": True, "sort_order": 1, "created_at": datetime.now(timezone.utc).isoformat()},
+            {"id": str(uuid.uuid4()), "name": {"pt": "Happy Hour", "en": "Happy Hour", "es": "Happy Hour"}, "description": {}, "icon": "wine", "active": True, "sort_order": 2, "created_at": datetime.now(timezone.utc).isoformat()},
+        ]
+        await db.menus.insert_many([dict(m) for m in default_menus])
+        main_menu_id = default_menus[0]["id"]
+        # Link existing products with empty menu_ids to main menu
+        await db.products.update_many({"$or": [{"menu_ids": {"$exists": False}}, {"menu_ids": []}]},
+                                       {"$set": {"menu_ids": [main_menu_id]}})
 
     # Seed demo tags + products if empty
     if await db.tags.count_documents({}) == 0:

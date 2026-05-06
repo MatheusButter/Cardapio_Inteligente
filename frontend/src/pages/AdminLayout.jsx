@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Package, Tags, QrCode, LogOut, Utensils, ExternalLink } from "lucide-react";
+import { Package, Tags, QrCode, LogOut, Utensils, ExternalLink, ClipboardList, Users, BookOpen, Settings } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
 import LanguageToggle from "../components/LanguageToggle";
@@ -32,15 +32,31 @@ export default function AdminLayout() {
           {user && <p className="text-xs text-[#D1D5DB] mt-1">{user.email}</p>}
         </div>
         <nav className="px-3 space-y-1 flex-1" data-testid="admin-nav">
+          <NavLink to="/admin/orders" className={navItem} data-testid="nav-orders">
+            <ClipboardList size={18} /> Pedidos
+          </NavLink>
           <NavLink to="/admin/products" className={navItem} data-testid="nav-products">
             <Package size={18} /> {t("admin.products")}
+          </NavLink>
+          <NavLink to="/admin/menus" className={navItem} data-testid="nav-menus">
+            <BookOpen size={18} /> Cardápios
           </NavLink>
           <NavLink to="/admin/tags" className={navItem} data-testid="nav-tags">
             <Tags size={18} /> {t("admin.tags")}
           </NavLink>
+          {user?.role === "admin" && (
+            <NavLink to="/admin/staff" className={navItem} data-testid="nav-staff">
+              <Users size={18} /> Equipe
+            </NavLink>
+          )}
           <NavLink to="/admin/qr" className={navItem} data-testid="nav-qr">
             <QrCode size={18} /> {t("admin.qr")}
           </NavLink>
+          {(user?.role === "admin" || user?.role === "manager") && (
+            <NavLink to="/admin/settings" className={navItem} data-testid="nav-settings">
+              <Settings size={18} /> Configurações
+            </NavLink>
+          )}
         </nav>
         <div className="p-4 space-y-2 border-t border-white/10">
           <Link

@@ -1,19 +1,19 @@
 import React, { useState } from "react";
-import { ShoppingBag, X, Plus, Minus, MessageCircle, Trash2 } from "lucide-react";
+import { ShoppingBag, X, Plus, Minus, MessageCircle, Trash2, Lock } from "lucide-react";
 import { useCart } from "../cart/CartContext";
 import { useI18n } from "../i18n/I18nContext";
+import { useStore } from "../store/StoreContext";
 import { resolveImageUrl } from "../lib/api";
+import CheckoutModal from "./CheckoutModal";
 
 export default function CartDrawer() {
   const { items, count, total, inc, dec, remove, clear } = useCart();
   const { tf } = useI18n();
+  const { store } = useStore();
   const [open, setOpen] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
-  const checkout = () => {
-    const lines = items.map((i) => `• ${i.qty}x ${tf(i.name)}${i.portionLabel ? ` (${tf(i.portionLabel)})` : ""} — R$ ${(i.price * i.qty).toFixed(2)}`).join("%0A");
-    const msg = `Olá! Gostaria de fazer um pedido:%0A%0A${lines}%0A%0A*Total: R$ ${total.toFixed(2)}*`;
-    window.open(`https://wa.me/?text=${msg}`, "_blank");
-  };
+  const storeOpen = store?.is_open !== false;
 
   return (
     <>
@@ -85,13 +85,19 @@ export default function CartDrawer() {
                   <span className="text-sm text-[#6B7280] uppercase tracking-wider font-semibold">Total</span>
                   <span className="font-heading font-bold text-2xl text-[#A0522D]" data-testid="cart-total">R$ {total.toFixed(2)}</span>
                 </div>
-                <button
-                  onClick={checkout}
-                  className="w-full bg-[#205427] text-white hover:bg-[#163818] rounded-xl px-6 py-3.5 font-medium transition-colors inline-flex items-center justify-center gap-2"
-                  data-testid="cart-checkout-btn"
-                >
-                  <MessageCircle size={16} /> Fechar pedido pelo WhatsApp
-                </button>
+                {storeOpen ? (
+                  <button
+                    onClick={() => { setOpen(false); setCheckoutOpen(true); }}
+                    className="w-full bg-[#205427] text-white hover:bg-[#163818] rounded-xl px-6 py-3.5 font-medium transition-colors inline-flex items-center justify-center gap-2"
+                    data-testid="cart-checkout-btn"
+                  >
+                    <MessageCircle size={16} /> Finalizar pedido
+                  </button>
+                ) : (
+                  <div className="w-full bg-[#6B7280]/10 text-[#6B7280] rounded-xl px-6 py-3.5 font-medium inline-flex items-center justify-center gap-2" data-testid="cart-store-closed">
+                    <Lock size={16} /> Loja fechada — pedidos indisponíveis
+                  </div>
+                )}
                 <button onClick={clear} className="w-full text-xs text-[#6B7280] hover:text-[#DC2626] transition-colors">
                   Esvaziar pedido
                 </button>
@@ -100,6 +106,7 @@ export default function CartDrawer() {
           </div>
         </div>
       )}
+      <CheckoutModal open={checkoutOpen} onClose={() => setCheckoutOpen(false)} />
     </>
   );
 }

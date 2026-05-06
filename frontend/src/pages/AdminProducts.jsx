@@ -24,14 +24,15 @@ export default function AdminProducts() {
   const { t, tf } = useI18n();
   const [products, setProducts] = useState([]);
   const [tags, setTags] = useState([]);
+  const [menus, setMenus] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null); // product or EMPTY or null
   const [uploading, setUploading] = useState(false);
 
   const reload = async () => {
     setLoading(true);
-    const [p, t] = await Promise.all([api.get("/products"), api.get("/tags")]);
-    setProducts(p.data); setTags(t.data); setLoading(false);
+    const [p, t, m] = await Promise.all([api.get("/products"), api.get("/tags"), api.get("/menus")]);
+    setProducts(p.data); setTags(t.data); setMenus(m.data || []); setLoading(false);
   };
 
   useEffect(() => { reload(); }, []);
@@ -346,6 +347,24 @@ export default function AdminProducts() {
                       </button>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* Menus */}
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider text-[#6B7280] block mb-2">Cardápios</label>
+                <div className="flex flex-wrap gap-2">
+                  {menus.map((m) => {
+                    const active = (editing.menu_ids || []).includes(m.id);
+                    return (
+                      <button key={m.id} type="button" onClick={() => toggleMenu(m.id)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${active ? "bg-[#205427] text-white border-[#205427]" : "bg-white text-[#2F3538] border-[#EAE6DF]"}`}
+                        data-testid={`select-menu-${m.id}`}>
+                        {m.name?.pt || m.name?.en || ""}
+                      </button>
+                    );
+                  })}
+                  {menus.length === 0 && <span className="text-sm text-[#6B7280]">Crie cardápios primeiro</span>}
                 </div>
               </div>
 

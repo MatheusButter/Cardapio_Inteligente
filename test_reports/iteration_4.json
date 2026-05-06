@@ -1,0 +1,51 @@
+{
+  "summary": "V2 testing of Cardapio Digital: store toggle, menus CRUD, staff RBAC, orders flow, customer checkout, admin Kanban. All 35 backend tests pass (24 new V2 + 11 regression). Frontend customer + admin flows verified end-to-end. Found and fixed one React useMemo dep bug in MenuPage that broke menu-tab filtering.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "MenuPage.jsx",
+        "issue": "useMemo deps array missing 'activeMenu' caused menu tab filter to never re-apply — clicking Breakfast/Happy Hour did NOT filter products. FIXED by adding activeMenu to deps (line 84). Verified: Breakfast now correctly returns 0 products.",
+        "selector": "[data-testid^='menu-tab-']",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_v2.py",
+    "/app/backend/tests/backend_test.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "/app/test_reports/pytest/v2_results.xml"
+  ],
+  "action_items": [
+    "Optional: clean up TEST_ orders/products/menus/staff in DB created during testing (admin user TEST Store name persisted in store_settings — consider resetting if it shows in UI)."
+  ],
+  "critical_code_review_comments": [
+    "server.py is ~760 lines and covers auth + storage + tags + products + menus + staff + orders + seed. Recommend splitting into routers/{auth,products,menus,staff,orders,store}.py and a separate seed module — per the >700 line threshold.",
+    "server.py uses CORS allow_origins=['*'] with allow_credentials=False. Cookies are set with samesite='none', secure=True, httponly=True — correct, but since allow_credentials is False, browsers will not send cookies cross-origin. Frontend already uses Bearer token from localStorage (cd_token), so this works. Document the dual-auth model or set allow_credentials=True with explicit origins.",
+    "POST /api/orders calls get_current_user() inside a try/except to optionally identify staff. This swallows InvalidToken/ExpiredSignature errors silently and treats expired-token requests as guest orders. Consider distinguishing 'no token' vs 'invalid token' — invalid tokens should 401 even on guest endpoints.",
+    "_gen_order_code() uses random 4-digit code with no uniqueness check; collisions are possible (1/9000). Consider sequential daily counter or include date prefix.",
+    "Order list endpoint accepts 'limit' query as int but no upper bound; could return up to int max. Cap to e.g. 500.",
+    "Frontend MenuPage filter useMemo had a missing dep (fixed). General lint note: enable react-hooks/exhaustive-deps to catch similar issues.",
+    "Settings save button testid is 'save-settings-btn' (not 'settings-save' as referenced in the request) — verify the request's testid expectations align with implementation."
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/MenuPage.jsx",
+    "/app/backend/tests/test_v2.py"
+  ],
+  "success_rate": {
+    "backend": "100% (35/35)",
+    "frontend": "100% after MenuPage fix (was failing menu-tab filter before)"
+  },
+  "test_credentials": "admin@cardapio.com / admin123 (admin). Staff users created during tests are auto-cleaned in fixtures.",
+  "seed_data_creation": "Created during backend tests via fixtures (auto-cleaned): TEST waiter + manager staff users, TEST products, TEST tags, TEST menus, TEST orders. Some TEST orders persisted (no DELETE endpoint exposed). Store settings updated to store_name='TEST Store' — non-destructive.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend V2 fully covered in /app/backend/tests/test_v2.py (24 tests covering store toggle, menus CRUD, staff RBAC, orders flow, store-closed guard, status flow with status_history). All testids referenced in request align with implementation EXCEPT settings save uses 'save-settings-btn' (not 'settings-save'). Frontend menu-tab filter bug fixed. Customer end-to-end checkout flow validated; admin Kanban Avancar button works (moves order pending→kitchen with toast confirmation).",
+  "rca of the issue": "MenuPage.jsx line 84 useMemo deps array did not include 'activeMenu', so when user changed the active menu tab, React reused the cached filtered products list (which was filtered with activeMenu='all'). Fix: added activeMenu to deps. Verified by clicking Breakfast tab → empty state shown (0 cards), as expected since seeded products are linked only to Cardápio Principal."
+}
