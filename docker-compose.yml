@@ -1,0 +1,60 @@
+name: cardapio-digital
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: cardapio-mongo
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ ping: 1 }).ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    container_name: cardapio-backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      MONGO_URL: "mongodb://mongo:27017"
+      DB_NAME: "${DB_NAME:-cardapio_digital}"
+      CORS_ORIGINS: "${CORS_ORIGINS:-*}"
+      JWT_SECRET: "${JWT_SECRET:-change-me-in-production-please-use-a-strong-secret}"
+      ADMIN_EMAIL: "${ADMIN_EMAIL:-admin@cardapio.com}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-admin123}"
+      APP_NAME: "${APP_NAME:-cardapio-digital}"
+      # Emergent object storage key (uploads only). Leave empty to disable uploads.
+      EMERGENT_LLM_KEY: "${EMERGENT_LLM_KEY:-}"
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8001/api/"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Empty string => the React app calls /api relative to its own origin,
+        # which is proxied by nginx to the backend container.
+        REACT_APP_BACKEND_URL: ""
+    container_name: cardapio-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+
+volumes:
+  mongo_data:
