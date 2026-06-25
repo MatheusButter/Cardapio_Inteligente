@@ -19,11 +19,21 @@ import AdminStaff from "./pages/AdminStaff";
 import AdminMenus from "./pages/AdminMenus";
 import AdminSettings from "./pages/AdminSettings";
 
-function Protected({ children }) {
+function Protected({ children, roles }) {
   const { user, ready } = useAuth();
   if (!ready) return <div className="min-h-screen flex items-center justify-center text-[#6B7280]">Carregando...</div>;
+  const ok = user && (!roles || roles.includes(user.role));
   if (!user || !["admin","manager","waiter","kitchen","cashier"].includes(user.role)) return <Navigate to="/admin/login" replace />;
+  if (!ok) return <Navigate to="/admin/orders" replace />;
   return children;
+}
+
+function AdminIndex() {
+  // Send the user to the page their role can actually see
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/admin/login" replace />;
+  if (user.role === "admin" || user.role === "manager") return <Navigate to="orders" replace />;
+  return <Navigate to="orders" replace />;
 }
 
 export default function App() {
@@ -39,14 +49,14 @@ export default function App() {
               <Route path="/menu/:id" element={<ProductDetailPage />} />
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin" element={<Protected><AdminLayout /></Protected>}>
-                <Route index element={<Navigate to="orders" replace />} />
+                <Route index element={<AdminIndex />} />
                 <Route path="orders" element={<AdminOrders />} />
-                <Route path="products" element={<AdminProducts />} />
-                <Route path="menus" element={<AdminMenus />} />
-                <Route path="tags" element={<AdminTags />} />
-                <Route path="staff" element={<AdminStaff />} />
-                <Route path="settings" element={<AdminSettings />} />
-                <Route path="qr" element={<AdminQR />} />
+                <Route path="products" element={<Protected roles={["admin","manager"]}><AdminProducts /></Protected>} />
+                <Route path="menus" element={<Protected roles={["admin","manager"]}><AdminMenus /></Protected>} />
+                <Route path="tags" element={<Protected roles={["admin","manager"]}><AdminTags /></Protected>} />
+                <Route path="staff" element={<Protected roles={["admin"]}><AdminStaff /></Protected>} />
+                <Route path="settings" element={<Protected roles={["admin","manager"]}><AdminSettings /></Protected>} />
+                <Route path="qr" element={<Protected roles={["admin","manager"]}><AdminQR /></Protected>} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

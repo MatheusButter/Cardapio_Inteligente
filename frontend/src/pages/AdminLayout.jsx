@@ -15,6 +15,12 @@ export default function AdminLayout() {
   const { t } = useI18n();
   const navigate = useNavigate();
 
+  const role = user?.role || "";
+  const isAdmin = role === "admin";
+  const isManager = role === "manager";
+  const canManageContent = isAdmin || isManager;          // products, tags, menus, qr, settings
+  const canSeeOrders = ["admin","manager","waiter","kitchen","cashier"].includes(role);
+
   const onLogout = async () => {
     await logout();
     navigate("/admin/login");
@@ -29,33 +35,48 @@ export default function AdminLayout() {
             <span className="text-xs font-semibold uppercase tracking-[0.2em]">{t("menu.poweredBy")}</span>
           </div>
           <h2 className="font-heading text-2xl font-bold text-white mt-1">{t("admin.dashboard")}</h2>
-          {user && <p className="text-xs text-[#D1D5DB] mt-1">{user.email}</p>}
+          {user && (
+            <div className="mt-2">
+              <p className="text-xs text-[#D1D5DB] truncate">{user.email}</p>
+              <span className="inline-block mt-1 text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-[#A0522D]/20 text-[#E0B98C]">
+                {{ admin: "Administrador", manager: "Gerente", waiter: "Garçom", kitchen: "Cozinha", cashier: "Caixa" }[role] || role}
+              </span>
+            </div>
+          )}
         </div>
         <nav className="px-3 space-y-1 flex-1" data-testid="admin-nav">
-          <NavLink to="/admin/orders" className={navItem} data-testid="nav-orders">
-            <ClipboardList size={18} /> Pedidos
-          </NavLink>
-          <NavLink to="/admin/products" className={navItem} data-testid="nav-products">
-            <Package size={18} /> {t("admin.products")}
-          </NavLink>
-          <NavLink to="/admin/menus" className={navItem} data-testid="nav-menus">
-            <BookOpen size={18} /> Cardápios
-          </NavLink>
-          <NavLink to="/admin/tags" className={navItem} data-testid="nav-tags">
-            <Tags size={18} /> {t("admin.tags")}
-          </NavLink>
-          {user?.role === "admin" && (
+          {canSeeOrders && (
+            <NavLink to="/admin/orders" className={navItem} data-testid="nav-orders">
+              <ClipboardList size={18} /> Pedidos
+            </NavLink>
+          )}
+          {canManageContent && (
+            <>
+              <NavLink to="/admin/products" className={navItem} data-testid="nav-products">
+                <Package size={18} /> {t("admin.products")}
+              </NavLink>
+              <NavLink to="/admin/menus" className={navItem} data-testid="nav-menus">
+                <BookOpen size={18} /> Cardápios
+              </NavLink>
+              <NavLink to="/admin/tags" className={navItem} data-testid="nav-tags">
+                <Tags size={18} /> {t("admin.tags")}
+              </NavLink>
+            </>
+          )}
+          {isAdmin && (
             <NavLink to="/admin/staff" className={navItem} data-testid="nav-staff">
               <Users size={18} /> Equipe
             </NavLink>
           )}
-          <NavLink to="/admin/qr" className={navItem} data-testid="nav-qr">
-            <QrCode size={18} /> {t("admin.qr")}
-          </NavLink>
-          {(user?.role === "admin" || user?.role === "manager") && (
-            <NavLink to="/admin/settings" className={navItem} data-testid="nav-settings">
-              <Settings size={18} /> Configurações
-            </NavLink>
+          {canManageContent && (
+            <>
+              <NavLink to="/admin/qr" className={navItem} data-testid="nav-qr">
+                <QrCode size={18} /> {t("admin.qr")}
+              </NavLink>
+              <NavLink to="/admin/settings" className={navItem} data-testid="nav-settings">
+                <Settings size={18} /> Configurações
+              </NavLink>
+            </>
           )}
         </nav>
         <div className="p-4 space-y-2 border-t border-white/10">

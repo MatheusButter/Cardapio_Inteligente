@@ -74,7 +74,7 @@ export default function AdminProducts() {
     form.append("file", file);
     setUploading(true);
     try {
-      const { data } = await api.post("/upload", form, { headers: { "Content-Type": "multipart/form-data" } });
+      const { data } = await api.post("/upload", form);
       setEditing((prev) => ({ ...prev, image_path: prev.image_path || data.path, images: [...(prev.images || []), data.path] }));
       toast.success("Imagem enviada");
     } catch (err) {
@@ -117,6 +117,12 @@ export default function AdminProducts() {
     const set = new Set(p.pairing_ids || []);
     if (set.has(id)) set.delete(id); else set.add(id);
     return { ...p, pairing_ids: Array.from(set) };
+  });
+
+  const toggleMenu = (id) => setEditing((p) => {
+    const set = new Set(p.menu_ids || []);
+    if (set.has(id)) set.delete(id); else set.add(id);
+    return { ...p, menu_ids: Array.from(set) };
   });
 
   const toggleTag = (id) => {
