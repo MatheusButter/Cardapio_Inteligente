@@ -583,6 +583,120 @@ async def update_order_status(order_id: str, payload: OrderStatusUpdate, user: d
         raise HTTPException(status_code=404, detail="Order not found")
     return await db.orders.find_one({"id": order_id}, {"_id": 0})
 
+# ---- Analytics / Dashboard ----
+@api_router.get("/analytics")
+async def get_analytics(_: dict = Depends(require_roles("admin", "manager"))):
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_start = today_start - timedelta(days=now.weekday())  # Monday
+    month_start = today_start.replace(day=1)
+
+    def iso(dt): return dt.isoformat()
+
+    revenue_statuses = ["ready", "delivered", "completed"]  # consider sold
+
+    async def sum_range(start_dt):
+        cursor = db.orders.aggregate([
+            {"$match": {"created_at": {"$gte": iso(start_dt)}, "status": {"$in": revenue_statuses}}},
+            {"$group": {"_id": None, "total": {"$sum": "$total"}, "count": {"$sum": 1}}},
+        ])
+        async for r in cursor:
+            return {"revenue": round(r.get("total", 0), 2), "orders": r.get("count", 0)}
+        return {"revenue": 0.0, "orders": 0}
+
+    today = await sum_range(today_start)
+    week = await sum_range(week_start)
+    month = await sum_range(month_start)
+
+    # Counts by current status
+    by_status = {s: 0 for s in ORDER_STATUSES}
+    cursor = db.orders.aggregate([
+        {"$group": {"_id": "$status", "n": {"$sum": 1}}}
+    ])
+    async for r in cursor:
+        if r["_id"] in by_status:
+            by_status[r["_id"]] = r["n"]
+
+    # Average ticket today
+    avg_ticket_today = round(today["revenue"] / today["orders"], 2) if today["orders"] else 0.0
+
+    # Top selling products (last 30 days)
+    thirty = (now - timedelta(days=30)).isoformat()
+    top_products = []
+    cursor = db.orders.aggregate([
+        {"$match": {"created_at": {"$gte": thirty}, "status": {"$in": revenue_statuses}}},
+        {"$unwind": "$items"},
+        {"$group": {
+            "_id": "$items.product_id",
+            "name": {"$first": "$items.name"},
+            "qty": {"$sum": "$items.qty"},
+            "revenue": {"$sum": {"$multiply": ["$items.qty", "$items.unit_price"]}},
+        }},
+        {"$sort": {"qty": -1}},
+        {"$limit": 5},
+    ])
+    async for r in cursor:
+        top_products.append({
+            "product_id": r["_id"],
+            "name": r.get("name") or {"pt": "?"},
+            "qty": r["qty"],
+            "revenue": round(r["revenue"], 2),
+        })
+
+    # Hourly distribution today
+    hourly = [{"hour": h, "orders": 0, "revenue": 0.0} for h in range(24)]
+    cursor = db.orders.find(
+        {"created_at": {"$gte": iso(today_start)}, "status": {"$in": revenue_statuses}},
+        {"_id": 0, "created_at": 1, "total": 1},
+    )
+    async for o in cursor:
+        try:
+            dt = datetime.fromisoformat(o["created_at"].replace("Z", "+00:00"))
+            h = dt.hour
+            hourly[h]["orders"] += 1
+            hourly[h]["revenue"] = round(hourly[h]["revenue"] + (o.get("total", 0) or 0), 2)
+        except Exception:
+            pass
+
+    # Revenue last 7 days
+    last_7_days = []
+    for i in range(6, -1, -1):
+        day = (today_start - timedelta(days=i))
+        nxt = day + timedelta(days=1)
+        d = await db.orders.aggregate([
+            {"$match": {"created_at": {"$gte": iso(day), "$lt": iso(nxt)}, "status": {"$in": revenue_statuses}}},
+            {"$group": {"_id": None, "rev": {"$sum": "$total"}, "n": {"$sum": 1}}},
+        ]).to_list(1)
+        last_7_days.append({
+            "day": day.strftime("%a %d/%m"),
+            "date": day.strftime("%Y-%m-%d"),
+            "revenue": round(d[0]["rev"], 2) if d else 0.0,
+            "orders": d[0]["n"] if d else 0,
+        })
+
+    # Active counts
+    active_products = await db.products.count_documents({"available": True})
+    total_products = await db.products.count_documents({})
+    active_tags = await db.tags.count_documents({})
+    staff_count = await db.users.count_documents({"role": {"$in": list(STAFF_ROLES)}})
+
+    return {
+        "today": today,
+        "week": week,
+        "month": month,
+        "avg_ticket_today": avg_ticket_today,
+        "by_status": by_status,
+        "top_products": top_products,
+        "hourly": hourly,
+        "last_7_days": last_7_days,
+        "catalog": {
+            "active_products": active_products,
+            "total_products": total_products,
+            "tags": active_tags,
+            "staff": staff_count,
+        },
+    }
+
 # -------- Health --------
 @api_router.get("/")
 async def root():

@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { Package, Tags, QrCode, LogOut, Utensils, ExternalLink, ClipboardList, Users, BookOpen, Settings } from "lucide-react";
+import { Package, Tags, QrCode, LogOut, Utensils, ExternalLink, ClipboardList, Users, BookOpen, Settings, LayoutDashboard } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { useI18n } from "../i18n/I18nContext";
 import LanguageToggle from "../components/LanguageToggle";
@@ -45,6 +45,11 @@ export default function AdminLayout() {
           )}
         </div>
         <nav className="px-3 space-y-1 flex-1" data-testid="admin-nav">
+          {canManageContent && (
+            <NavLink to="/admin/dashboard" className={navItem} data-testid="nav-dashboard">
+              <LayoutDashboard size={18} /> Dashboard
+            </NavLink>
+          )}
           {canSeeOrders && (
             <NavLink to="/admin/orders" className={navItem} data-testid="nav-orders">
               <ClipboardList size={18} /> Pedidos

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Store, Save, Phone, MapPin } from "lucide-react";
 import api, { formatApiErrorDetail } from "../lib/api";
@@ -8,16 +8,41 @@ export default function AdminSettings() {
   const { store, refresh } = useStore();
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [toggling, setToggling] = useState(false);
+  const synced = useRef(false);
 
-  useEffect(() => { if (store) setForm({ ...store }); }, [store]);
+  // Sync form from store ONCE on first load — afterwards the polling
+  // must NOT overwrite the user's unsaved edits.
+  useEffect(() => {
+    if (store && !synced.current) {
+      setForm({ ...store });
+      synced.current = true;
+    }
+  }, [store]);
 
   if (!form) return <div className="text-[#6B7280]">Carregando...</div>;
+
+  // Toggle the store immediately (persists right away) — no risk of
+  // the 30s polling overriding the user's intent.
+  const toggleOpen = async () => {
+    if (toggling) return;
+    const newVal = !form.is_open;
+    setForm((f) => ({ ...f, is_open: newVal }));
+    setToggling(true);
+    try {
+      await api.put("/store", { is_open: newVal });
+      await refresh();
+      toast.success(newVal ? "Loja aberta — pedidos liberados" : "Loja fechada — apenas visualização");
+    } catch (e) {
+      setForm((f) => ({ ...f, is_open: !newVal })); // revert
+      toast.error(formatApiErrorDetail(e.response?.data?.detail));
+    } finally { setToggling(false); }
+  };
 
   const save = async () => {
     setSaving(true);
     try {
       await api.put("/store", {
-        is_open: form.is_open,
         store_name: form.store_name,
         whatsapp: form.whatsapp,
         address: form.address,
@@ -49,8 +74,9 @@ export default function AdminSettings() {
             </p>
           </div>
           <button
-            onClick={() => setForm((f) => ({ ...f, is_open: !f.is_open }))}
-            className={`relative w-16 h-9 rounded-full transition-colors ${form.is_open ? "bg-[#205427]" : "bg-[#6B7280]/30"}`}
+            onClick={toggleOpen}
+            disabled={toggling}
+            className={`relative w-16 h-9 rounded-full transition-colors disabled:opacity-60 ${form.is_open ? "bg-[#205427]" : "bg-[#6B7280]/30"}`}
             data-testid="toggle-store-open"
             aria-label="Toggle store open"
           >

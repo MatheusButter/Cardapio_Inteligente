@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, MessageCircle, Check } from "lucide-react";
+import { X, Check } from "lucide-react";
 import { toast } from "sonner";
 import api, { formatApiErrorDetail } from "../lib/api";
 import { useCart } from "../cart/CartContext";
@@ -42,16 +42,6 @@ export default function CheckoutModal({ open, onClose }) {
     } finally { setSubmitting(false); }
   };
 
-  const sendWhats = () => {
-    const phone = (store?.whatsapp || "").replace(/\D/g, "");
-    const lines = items.map((i) => `• ${i.qty}× ${tf(i.name)}${i.portionLabel ? ` (${tf(i.portionLabel)})` : ""} — R$ ${(i.price * i.qty).toFixed(2)}`).join("%0A");
-    const header = done ? `Pedido *${done.code}* — ${done.customer_name}` : `Pedido — ${customerName}`;
-    const where = mode === "table" ? `Mesa ${tableNumber}` : "Balcão";
-    const msg = `${header}%0A${where}%0A%0A${lines}%0A%0A*Total: R$ ${total.toFixed(2)}*`;
-    const base = phone ? `https://wa.me/${phone}?text=${msg}` : `https://wa.me/?text=${msg}`;
-    window.open(base, "_blank");
-  };
-
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
       <div className="bg-white w-full max-w-lg rounded-t-2xl sm:rounded-2xl max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()} data-testid="checkout-modal">
@@ -75,11 +65,17 @@ export default function CheckoutModal({ open, onClose }) {
               <div className="text-xs text-[#6B7280] mt-2">Total</div>
               <div className="font-heading font-bold text-xl text-[#A0522D]">R$ {Number(done.total).toFixed(2)}</div>
             </div>
-            <div className="mt-6 flex flex-col gap-2">
-              <button onClick={sendWhats} className="bg-[#205427] text-white hover:bg-[#163818] rounded-xl px-6 py-3 font-medium inline-flex items-center justify-center gap-2">
-                <MessageCircle size={16} /> Notificar pelo WhatsApp
+            <p className="text-xs text-[#6B7280] mt-4">
+              Acompanhe seu pedido na própria mesa. Pague diretamente no estabelecimento.
+            </p>
+            <div className="mt-6">
+              <button
+                onClick={() => { setDone(null); onClose(); }}
+                className="w-full bg-[#205427] text-white hover:bg-[#163818] rounded-xl px-6 py-3 font-medium transition-colors"
+                data-testid="order-confirm-close-btn"
+              >
+                Voltar ao cardápio
               </button>
-              <button onClick={() => { setDone(null); onClose(); }} className="text-sm text-[#6B7280] hover:text-[#2F3538]">Fechar</button>
             </div>
           </div>
         ) : (

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ShoppingBag, X, Plus, Minus, MessageCircle, Trash2, Lock } from "lucide-react";
+import { ShoppingBag, X, Plus, Minus, Trash2, Lock, ArrowRight } from "lucide-react";
 import { useCart } from "../cart/CartContext";
 import { useI18n } from "../i18n/I18nContext";
 import { useStore } from "../store/StoreContext";
@@ -91,7 +91,7 @@ export default function CartDrawer() {
                     className="w-full bg-[#205427] text-white hover:bg-[#163818] rounded-xl px-6 py-3.5 font-medium transition-colors inline-flex items-center justify-center gap-2"
                     data-testid="cart-checkout-btn"
                   >
-                    <MessageCircle size={16} /> Finalizar pedido
+                    Finalizar pedido <ArrowRight size={16} />
                   </button>
                 ) : (
                   <div className="w-full bg-[#6B7280]/10 text-[#6B7280] rounded-xl px-6 py-3.5 font-medium inline-flex items-center justify-center gap-2" data-testid="cart-store-closed">

@@ -18,6 +18,7 @@ import AdminOrders from "./pages/AdminOrders";
 import AdminStaff from "./pages/AdminStaff";
 import AdminMenus from "./pages/AdminMenus";
 import AdminSettings from "./pages/AdminSettings";
+import AdminDashboard from "./pages/AdminDashboard";
 
 function Protected({ children, roles }) {
   const { user, ready } = useAuth();
@@ -32,7 +33,7 @@ function AdminIndex() {
   // Send the user to the page their role can actually see
   const { user } = useAuth();
   if (!user) return <Navigate to="/admin/login" replace />;
-  if (user.role === "admin" || user.role === "manager") return <Navigate to="orders" replace />;
+  if (user.role === "admin" || user.role === "manager") return <Navigate to="dashboard" replace />;
   return <Navigate to="orders" replace />;
 }
 
@@ -50,6 +51,7 @@ export default function App() {
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin" element={<Protected><AdminLayout /></Protected>}>
                 <Route index element={<AdminIndex />} />
+                <Route path="dashboard" element={<Protected roles={["admin","manager"]}><AdminDashboard /></Protected>} />
                 <Route path="orders" element={<AdminOrders />} />
                 <Route path="products" element={<Protected roles={["admin","manager"]}><AdminProducts /></Protected>} />
                 <Route path="menus" element={<Protected roles={["admin","manager"]}><AdminMenus /></Protected>} />
